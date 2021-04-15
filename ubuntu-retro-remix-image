@@ -12,6 +12,7 @@ function usage () {
   echo "  megapi"
   echo "  nespi"
   echo "  superpi"
+  echo "  c64pi"
 }
 
 function nspawn() {
@@ -208,6 +209,14 @@ system_info:
    ssh_svcname: ssh
 EOM
 
+    # Install C64 Roms
+    if [ "${REMIX}" == "c64pi" ]; then
+    wget https://sourceforge.net/projects/vice-emu/files/releases/vice-3.4.tar.gz/download -O /tmp/vice-3.4.tar.gz
+    tar -zxvf /tmp/vice-3.4.tar.gz -C /tmp/
+    find /tmp/vice-*/data -mindepth 1 -type d -exec sudo cp -rnv {} ${R}/usr/lib/vice/ \;
+    rm -rf /tmp/vice-3.4*
+    fi
+
     # Install joypad-autoconfig
     nspawn apt -y install make
     git clone https://github.com/libretro/retroarch-joypad-autoconfig.git ${R}/usr/local/src/retroarch-joypad-autoconfig
@@ -306,13 +315,44 @@ Icon=/opt/ludo/assets/icon.svg
 Type=Application
 EOM
 
+    cat <<'EOM' > ${R}/usr/share/xsessions/c64.desktop
+[Desktop Entry]
+Name=C64
+Exec=/usr/share/xsessions/runC64.sh
+Icon=/usr/lib/vice/common/icon.png
+Type=Application
+EOM
+
     # Enable auto-login for lightdm. ubuntu user autologin to the session
+
+if ["${REMIX}" == "c64pi" ]; then
+    cat <<'EOM' > ${R}/etc/lightdm/lightdm.conf
+[SeatDefaults]
+autologin-user=ubuntu
+autologin-user-timeout=0
+autologin-session=c64
+EOM
+    cat <<'EOM' > ${R}/home/ubuntu/.ratpoisonrc
+unbind c
+unbind C-c
+unbind exclam
+unbind C-exclam
+unbind period
+EOM
+    cat <<'EOM' > ${R}/usr/share/xsessions/runC64.sh
+#!/bin/bash
+ratpoison &
+xscreensaver -nosplash &
+while true; do x64 -fullscreen; sleep 2s; done
+EOM
+else
     cat <<'EOM' > ${R}/etc/lightdm/lightdm.conf
 [SeatDefaults]
 autologin-user=ubuntu
 autologin-user-timeout=0
 autologin-session=retroremix
 EOM
+fi
 
     echo                            >> ${B}/config.txt
     echo "disable_overscan=1"       >> ${B}/config.txt
@@ -474,6 +514,10 @@ case "${REMIX}" in
     megapi)
         echo "[+] Specified MEGA Pi"
         REMIX_PACKAGES="retroarch retroarch-assets libretro-core-info"
+        shift;;
+    c64pi)
+        echo "[+] Specified C64 Pi"
+        REMIX_PACKAGES="vice pulseaudio ratpoison"
         shift;;
     *)
         if [ -z "${REMIX}" ]; then

@@ -33,6 +33,7 @@ Available supported devices are:
   megapi
   nespi
   superpi
+  c64pi
 ```
 
 ## TODO
